@@ -1,0 +1,60 @@
+---
+- hosts: apic
+  any_errors_fatal: true
+
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: /usr/bin/python3
+    tn_name: 'Lumos-Test'
+    bd: 'BD100'
+    status: 'created,modified'
+    #status: 'deleted'
+    vrf: 'JK-VRF'
+
+  vars_prompt:
+    - name: "apic_ip"
+      prompt: "Enter APIC IP"
+      private: no
+
+    - name: "user"
+      prompt: "Enter your APIC Username"
+      default: 'admin'
+      unsafe: yes
+
+    - name: "pass"
+      prompt: "Enter your APIC Password"
+      private: yes
+      unsafe: yes
+
+
+  tasks:
+
+  - name: Add A Bridge Domain
+    aci_rest:
+      host: "{{ inventory_hostname }}"
+      username: "{{ user }}"
+      password: "{{ pass }}"
+      use_ssl: yes
+      validate_certs: false
+      path: api/mo/uni.json
+      method: post
+      content: {
+              "fvBD": {
+                  "attributes": {
+                      "dn": "uni/tn-{{ tn_name }}/BD-{{ bd }}",
+                      "name": "{{ bd }}",
+                      "status": "{{ status }}"
+                        }, 
+                        "children": [ 
+                            {
+                                "fvRsCtx": {
+                                    "attributes": {
+                                        "tnFvCtxName": "{{ vrf }}",
+                                        "status": "created,modified"
+                                         }
+                                      }
+                                   }
+                                ]
+                             }
+                          }
+
