@@ -1,0 +1,82 @@
+---
+#Playbook by James Kayser - Lumos Cloud
+- hosts: apic
+  any_errors_fatal: true
+
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: /usr/bin/python3
+    cert_user: 'lumos_ansible' 
+    bridgedomain:
+      - { tn_name: 'Lumos-Test', name: 'BD101', status: "{{ the_status }}", vrf: 'JK-VRF' }
+      - { tn_name: 'Lumos-Test', name: 'BD102', status: "{{ the_status }}", vrf: 'JK-VRF' }
+      - { tn_name: 'Lumos-Test', name: 'BD103', status: "{{ the_status }}", vrf: 'JK-VRF' }
+
+  vars_prompt:
+    - name: "apic_ip"
+      prompt: "Enter APIC IP"
+      private: no
+
+    - name: "user"
+      prompt: "Enter your APIC Username"
+      default: 'admin'
+      unsafe: yes
+
+    - name: "pass"
+      prompt: "Enter your APIC Password"
+      private: yes
+      unsafe: yes
+
+    - name: "my_status"
+      prompt: "Press c to create object, Press d to delete object"
+      private: no
+      default: 'c'
+
+  tasks:
+  - name: Setting status to Create,Modified
+    set_fact:
+      the_status: 'created,modified'
+    when: my_status == 'c'
+
+  - name: Setting status to Deleted
+    set_fact:
+      the_status: 'deleted'
+    when: my_status == 'd'
+
+  - name: Calling User Generation Playbook
+    include_tasks: user-generation.yml
+  
+  - name: Add A Bridge Domain
+    aci_rest:
+      host: "{{ inventory_hostname }}"
+      username: "{{ cert_user }}"
+      private_key: "{{ cert_user }}.key"
+      certificate_name: "{{ cert_user }}" 
+      use_ssl: yes
+      validate_certs: false
+      path: api/mo/uni.json
+      method: post
+      content: {
+                "fvBD": {
+                    "attributes": {
+                        "dn": "uni/tn-{{ bd.tn_name }}/BD-{{ bd.name }}",
+                        "name": "{{ bd.name }}",
+                        "status": "{{ bd.status }}"
+                          }, 
+                          "children": [ 
+                              {
+                                  "fvRsCtx": {
+                                      "attributes": {
+                                          "tnFvCtxName": "{{ bd.vrf }}",
+                                          "status": "created,modified"
+                                           }
+                                        }
+                                     }
+                                  ]
+                               }
+                            }
+    loop: "{{ bridgedomain }}"
+    loop_control:
+      loop_var: bd
+
+
