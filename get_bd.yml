@@ -1,0 +1,56 @@
+- hosts: apic
+  any_errors_fatal: true
+
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: /usr/bin/python3
+    cert_user: 'lumos_ansible' 
+
+
+  vars_prompt:
+    - name: "apic_ip"
+      prompt: "Enter APIC IP"
+      private: yes
+
+    - name: "user"
+      prompt: "Enter your APIC Username"
+      default: 'admin'
+      unsafe: yes
+
+    - name: "pass"
+      prompt: "Enter your APIC Password"
+      private: yes
+      unsafe: yes
+
+
+  tasks:
+    # - name: Calling User Generation Playbook
+    #   include_tasks: user-generation.yml
+
+    - name: Query Bridge Domains
+      aci_rest:
+        host: "{{ inventory_hostname }}"
+        username: "{{ cert_user }}"
+        private_key: "{{ cert_user }}.key"
+        certificate_name: "{{ cert_user }}" 
+        use_ssl: yes
+        validate_certs: false
+        path: /api/mo/uni/tn-Lumos-Test.json?query-target=subtree&target-subtree-class=fvBD&rsp-subtree=full
+        method: get
+      register: bd_response
+
+#Use the path below to query ALL Bridge Domains and their child objects
+#/api/node/class/fvBD.json?query-target=subtree&target-subtree-class=fvBD&rsp-subtree=full
+
+
+    - name: JSON Query Filter String
+      set_fact:
+        bd_query: 'imdata[*].fvBD.[attributes.dn, attributes.descr, attributes.bcastP, attributes.mac, children[].fvRsCtx.attributes.tnFvCtxName, children[].fvSubnet.attributes.ip, attributes.arpFlood, attributes.ipLearning, attributes.limitIpLearnToSubnets, attributes.unicastRoute, attributes.unkMacUcastAct, attributes.unkMcastAct, children[].fvSubnet.attributes.scope, children[].fvRsBDToOut.attributes.tnL3extOutName]'
+
+    - name: Setting a Variable With Post Query Results
+      set_fact:
+        bd_post_query: '{{ bd_response | json_query(bd_query) }}'
+
+
+  
+
